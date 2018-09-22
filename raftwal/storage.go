@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -253,6 +254,7 @@ func (w *DiskStorage) seekEntry(e *pb.Entry, seekTo uint64, reverse bool) (uint6
 func (w *DiskStorage) FirstIndex() (uint64, error) {
 	snap := w.cache.snapshot()
 	if !raft.IsEmptySnap(snap) {
+		fmt.Printf("func FirstIndex: from cache.snapshot()\n")
 		return snap.Metadata.Index + 1, nil
 	}
 	if first := w.cache.first(); first > 0 {

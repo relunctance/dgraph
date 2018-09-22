@@ -309,6 +309,7 @@ func (srcFn *functionContext) needsValuePostings(typ types.TypeID) (bool, error)
 
 // Handles fetching of value posting lists and filtering of uids based on that.
 func handleValuePostings(ctx context.Context, args funcArgs) error {
+	fmt.Println("========== handleValuePostings. line 312.")
 	srcFn := args.srcFn
 	q := args.q
 	attr := q.Attr
@@ -342,6 +343,11 @@ func handleValuePostings(ctx context.Context, args funcArgs) error {
 		default:
 		}
 		key = x.DataKey(attr, q.UidList.Uids[i])
+		if i%10000 == 0 {
+			if tr, ok := trace.FromContext(ctx); ok {
+				tr.LazyPrintf("handleValuePostings. i:%v, attr:%v", i, attr)
+			}
+		}
 
 		// Get or create the posting list for an entity, attribute combination.
 		pl, err := posting.Get(key)
@@ -466,6 +472,10 @@ func handleValuePostings(ctx context.Context, args funcArgs) error {
 // This function handles operations on uid posting lists. Index keys, reverse keys and some data
 // keys store uid posting lists.
 func handleUidPostings(ctx context.Context, args funcArgs, opts posting.ListOptions) error {
+	if tr, ok := trace.FromContext(ctx); ok {
+		tr.LazyPrintf("handleUidPostings: %+v", args)
+	}
+
 	srcFn := args.srcFn
 	q := args.q
 	attr := q.Attr
@@ -477,6 +487,12 @@ func handleUidPostings(ctx context.Context, args funcArgs, opts posting.ListOpti
 	}
 
 	for i := 0; i < srcFn.n; i++ {
+		if i%1000 == 0 {
+			if tr, ok := trace.FromContext(ctx); ok {
+				tr.LazyPrintf("handleUidPostings: %d", i)
+			}
+
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -618,6 +634,10 @@ func processTask(ctx context.Context, q *intern.Query, gid uint32) (*intern.Resu
 }
 
 func helpProcessTask(ctx context.Context, q *intern.Query, gid uint32) (*intern.Result, error) {
+	if tr, ok := trace.FromContext(ctx); ok {
+		tr.LazyPrintf("helpProcessTask: attr:%v, docount: %v", q.Attr, q.DoCount)
+	}
+
 	out := new(intern.Result)
 	attr := q.Attr
 
@@ -656,6 +676,7 @@ func helpProcessTask(ctx context.Context, q *intern.Query, gid uint32) (*intern.
 	}
 	// If we have srcFunc and Uids, it means its a filter. So we intersect.
 	if srcFn.fnType != NotAFunction && q.UidList != nil && len(q.UidList.Uids) > 0 {
+		fmt.Println("========== line 673")
 		opts.Intersect = q.UidList
 	}
 
@@ -841,6 +862,10 @@ func handleCompareFunction(ctx context.Context, arg funcArgs) error {
 	tokenizer, err := pickTokenizer(attr, arg.srcFn.fname)
 	// We should already have checked this in getInequalityTokens.
 	x.Check(err)
+	if tr, ok := trace.FromContext(ctx); ok {
+		tr.LazyPrintf("handleCompareFunction: attr:%v, tokenizer:%v", attr, tokenizer)
+	}
+
 	// Only if the tokenizer that we used IsLossy, then we need to fetch
 	// and compare the actual values.
 	if tokenizer.IsLossy() {
@@ -1721,5 +1746,8 @@ func handleHasFunction(ctx context.Context, q *intern.Query, out *intern.Result)
 	}
 
 	out.UidMatrix = append(out.UidMatrix, result)
+	if tr, ok := trace.FromContext(ctx); ok {
+		tr.LazyPrintf("handleHasFunction: returning with %d results", len(result.Uids))
+	}
 	return nil
 }

@@ -65,6 +65,10 @@ type Node struct {
 func NewNode(rc *intern.RaftContext, store *raftwal.DiskStorage) *Node {
 	first, err := store.FirstIndex()
 	x.Check(err)
+	fmt.Printf("========== NewNode. FirstIndex: %v\n", first)
+	snap, err := store.Snapshot()
+	x.Check(err)
+	fmt.Printf("========== NewNode. snap:%+v\n", snap)
 
 	n := &Node{
 		Id:     rc.Id,
