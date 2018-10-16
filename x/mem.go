@@ -26,7 +26,3 @@ import "C"
 func SystemMemory() int64 {
 	return int64(C.sysconf(C._SC_PHYS_PAGES) * C.sysconf(C._SC_PAGE_SIZE))
 }
-
-func init() {
-	println(SystemMemory())
-}

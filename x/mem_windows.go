@@ -26,12 +26,7 @@ package x
 import "C"
 
 func SystemMemory() int64 {
-	statex C.MEMORYSTATUSEX;
-
-	C.GlobalMemoryStatusEx (&statex)
+	var statex C.MEMORYSTATUSEX
+	C.GlobalMemoryStatusEx(&statex)
 	return int64(statex.ullTotalPhys)
-}
-
-func init() {
-	println(SystemMemory())
 }

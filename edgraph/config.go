@@ -165,6 +165,10 @@ func (o *Options) validate() {
 	x.AssertTruefNoTrace(o.AllottedMemory >= MinAllottedMemory,
 		"LRU memory (--lru_mb) must be at least %.0f MB. Currently set to: %f",
 		MinAllottedMemory, o.AllottedMemory)
+	recommendedMemory := x.SystemMemory() / 1048576 / 3
+	if o.AllottedMemory < float64(recommendedMemory) {
+		x.Printf("Recommended LRU memory is %d MB (Currently set to: %f)\n", recommendedMemory, o.AllottedMemory)
+	}
 }
 
 // Parses the comma-delimited whitelist ip-range string passed in as an argument
