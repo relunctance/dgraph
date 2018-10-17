@@ -4,29 +4,29 @@ title = "Get Started"
 
 ## Dgraph
 
-Dgraph cluster consists of different nodes (zero, server & ratel) and each node serves a different purpose.
+A Dgraph cluster consists of different nodes (Zero, Alpha, and Ratel). Each each node serves a different purpose.
 
-**Dgraph Zero** controls the Dgraph cluster, assigns servers to a group and re-balances data between server groups.
+**Dgraph Zero** controls the Dgraph cluster, assigns alphas to a group and re-balances data between alpha groups.
 
 **Dgraph Alpha** hosts predicates and indexes.
 
 **Dgraph Ratel** serves the UI to run queries, mutations & altering schema.
 
-You need atleast one Dgraph zero and one Dgraph Alpha to get started.
+You need at least one Dgraph Zero and one Dgraph Alpha to get started.
 
 **Here's a 3 step tutorial to get you up and running.**
 
-This is a quick-start guide to running Dgraph. For an interactive walk through, take the [tour](https://tour.dgraph.io).
+For an interactive walk through, take the [tour](https://tour.dgraph.io).
 
 You can see the accompanying [video here](https://www.youtube.com/watch?v=QIIdSp2zLcs).
 
 ## Step 1: Install Dgraph
 
-Dgraph can be installed from the install scripts, or run via Docker.
+Dgraph can be installed from the install scripts or run via Docker.
 
 ### From Docker Image
 
-Pull the Dgraph Docker images [from here](https://hub.docker.com/r/dgraph/dgraph/). From a terminal:
+Pull the Dgraph Docker image [from here](https://hub.docker.com/r/dgraph/dgraph/). From a terminal:
 
 ```sh
 docker pull dgraph/dgraph
@@ -84,7 +84,7 @@ services:
       - 6080:6080
     restart: on-failure
     command: dgraph zero --my=zero:5080
-  server:
+  alpha:
     image: dgraph/dgraph:latest
     volumes:
       - type: volume
@@ -96,7 +96,7 @@ services:
       - 8080:8080
       - 9080:9080
     restart: on-failure
-    command: dgraph alpha --my=server:7080 --lru_mb=2048 --zero=zero:5080
+    command: dgraph alpha --my=alpha:7080 --lru_mb=2048 --zero=zero:5080
   ratel:
     image: dgraph/dgraph:latest
     volumes:
@@ -119,22 +119,22 @@ command from the folder containing the file.
 docker-compose up -d
 ```
 
-This would start Dgraph Alpha, Zero and Ratel. You can check the logs using `docker-compose logs`
+This would start Dgraph Zero, Alpha, and Ratel. You can check the logs using `docker-compose logs`
 
 ### From Installed Binary
 
-**Run Dgraph zero**
+**Run Dgraph Zero**
 
-Run `dgraph zero` to start Dgraph zero. This process controls Dgraph cluster,
+Run `dgraph zero` to start Dgraph Zero. This process controls Dgraph cluster,
 maintaining membership information, shard assignment and shard movement, etc.
 
 ```sh
 dgraph zero
 ```
 
-**Run Dgraph data server**
+**Run Dgraph Alpha**
 
-Run `dgraph alpha` to start Dgraph alpha.
+Run `dgraph alpha` to start Dgraph Alpha. This process hosts predicates and indexes.
 
 ```sh
 dgraph alpha --lru_mb 2048 --zero localhost:5080
@@ -148,7 +148,7 @@ Run 'dgraph-ratel' to start Dgraph UI. This can be used to do mutations and quer
 dgraph-ratel
 ```
 
-{{% notice "tip" %}}You need to set the estimated memory Dgraph alpha can take through `lru_mb` flag. This is just a hint to the Dgraph alpha and actual usage would be higher than this. It's recommended to set lru_mb to one-third the available RAM.{{% /notice %}}
+{{% notice "tip" %}}You need to set the estimated memory Dgraph Alpha can take with the required `--lru_mb` flag. This is just a hint to Dgraph Alpha and actual usage would be higher than this. It's recommended to set `--lru_mb` to one-third the available RAM.{{% /notice %}}
 
 ### Docker on Linux
 
@@ -166,19 +166,20 @@ docker exec -it diggy dgraph alpha --lru_mb 2048 --zero localhost:5080
 docker exec -it diggy dgraph-ratel
 ```
 
-The dgraph alpha listens on ports 8080 and 9080  with log output to the terminal.
+Dgarph Alpha listens on ports 8080 and 9080 with log output to the terminal.
 
-### Docker on Non Linux Distributions.
-File access in mounted filesystems is slower when using docker. Try running the command `time dd if=/dev/zero of=test.dat bs=1024 count=100000` on mounted volume and you will notice that it's horribly slow when using mounted volumes. We recommend users to use docker data volumes. The only downside of using data volumes is that you can't access the files from the host, you have to launch a container for accessing it.
+### Docker on Non Linux Distributions
 
-{{% notice "tip" %}}If you are using docker on non-linux distribution, please use docker data volumes.{{% /notice %}}
+File access in mounted filesystems is slower when using Docker. Try running the command `time dd if=/dev/zero of=test.dat bs=1024 count=100000` on mounted volume and you will notice that it's horribly slow when using mounted volumes. We recommend users to use Docker data volumes. The only downside of using data volumes is that you can't access the files from the host, you have to launch a container to access volumes.
 
-Create a docker data container named *data* with dgraph/dgraph image.
+{{% notice "tip" %}}If you are using Docker on a non-Linux distribution, please use Docker data volumes.{{% /notice %}}
+
+Create a Docker data container named *data* with the dgraph/dgraph image.
 ```sh
 docker create -v /dgraph --name data dgraph/dgraph
 ```
 
-Now if we run Dgraph container with `--volumes-from` flag and run Dgraph with the following command, then anything we write to /dgraph in Dgraph container will get written to /dgraph volume of datacontainer.
+Now if we run a Dgraph container with the `--volumes-from` flag and run Dgraph with the following command, then anything we write to /dgraph in the Dgraph container will get written to /dgraph in the data container.
 ```sh
 docker run -it -p 5080:5080 -p 6080:6080 --volumes-from data --name diggy dgraph/dgraph dgraph zero
 docker exec -it diggy dgraph alpha --lru_mb 2048 --zero localhost:5080
@@ -197,16 +198,17 @@ Ratel's default port is 8081, so override it using -p 8000.
 
 {{% /notice %}}
 
-
 ## Step 3: Run Queries
+
 {{% notice "tip" %}}Once Dgraph is running, you can access Ratel at [`http://localhost:8000`](http://localhost:8000). It allows browser-based queries, mutations and visualizations.
 
-The mutations and queries below can either be run from the command line using `curl localhost:8080/query -XPOST -d $'...'` or by pasting everything between the two `'` into the running user interface on localhost.{{% /notice %}}
+The mutations and queries below can either be run from the command line using `curl localhost:8080/query -XPOST -d $'...'` or by pasting everything between the two `'` into the Ratel UI on localhost:8000.{{% /notice %}}
 
 ### Dataset
 The dataset is a movie graph, where and the graph nodes are entities of the type directors, actors, genres, or movies.
 
 ### Storing data in the graph
+
 Changing the data stored in Dgraph is a mutation.  The following mutation stores information about the first three releases of the the ''Star Wars'' series and one of the ''Star Trek'' movies.  Running this mutation, either through the UI or on the command line, will store the data in Dgraph.
 
 
@@ -258,6 +260,7 @@ curl localhost:8080/mutate -H "X-Dgraph-CommitNow: true" -XPOST -d $'
 ```
 
 ### Adding indexes
+
 Alter the schema to add indexes on some of the data so queries can use term matching, filtering and sorting.
 
 ```sh
@@ -270,6 +273,7 @@ curl localhost:8080/alter -XPOST -d $'
 ```
 
 ### Get all movies
+
 Run this query to get all the movies. The query works below all the movies have a starring edge
 
 ```sh
@@ -283,6 +287,7 @@ curl localhost:8080/query -XPOST -d $'
 ```
 
 ### Get all movies released after "1980"
+
 Run this query to get "Star Wars" movies released after "1980".  Try it in the user interface to see the result as a graph.
 
 
@@ -375,14 +380,14 @@ with Dgraph from your application.
 ## Need Help
 
 * Please use [discuss.dgraph.io](https://discuss.dgraph.io) for questions, feature requests and discussions.
-* Please use [Github Issues](https://github.com/dgraph-io/dgraph/issues) if you encounter bugs or have feature requests.
+* Please use [GitHub Issues](https://github.com/dgraph-io/dgraph/issues) if you encounter bugs or have feature requests.
 * You can also join our [Slack channel](http://slack.dgraph.io).
 
 ## Troubleshooting
 
 ### 1. Docker: Error response from daemon; Conflict. Container name already exists.
 
-Remove the diggy container and try the docker run command again.
+Remove the diggy container and try the `docker run` command again.
 ```
 docker rm diggy
 ```
