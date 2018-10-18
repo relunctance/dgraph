@@ -4,7 +4,7 @@ title = "Get Started"
 
 ## Dgraph
 
-A Dgraph cluster consists of different nodes (Zero, Alpha, and Ratel). Each each node serves a different purpose.
+A Dgraph cluster consists of different nodes (Zero, Alpha, and Ratel). Each node serves a different purpose.
 
 **Dgraph Zero** controls the Dgraph cluster, assigns alphas to a group and re-balances data between alpha groups.
 
@@ -16,7 +16,7 @@ You need at least one Dgraph Zero and one Dgraph Alpha to get started.
 
 **Here's a 3 step tutorial to get you up and running.**
 
-For an interactive walk through, take the [tour](https://tour.dgraph.io).
+This is a quick-start guide to running Dgraph. For an interactive walk through, take the [tour](https://tour.dgraph.io).
 
 You can see the accompanying [video here](https://www.youtube.com/watch?v=QIIdSp2zLcs).
 
@@ -140,9 +140,9 @@ Run `dgraph alpha` to start Dgraph Alpha. This process hosts predicates and inde
 dgraph alpha --lru_mb 2048 --zero localhost:5080
 ```
 
-**Run Ratel**
+**Run Dgraph Ratel**
 
-Run 'dgraph-ratel' to start Dgraph UI. This can be used to do mutations and query through UI.
+Run 'dgraph-ratel' to start Dgraph Ratel. This serves a web UI that can be used to do mutations and visualize queries.
 
 ```sh
 dgraph-ratel
@@ -168,7 +168,7 @@ docker exec -it diggy dgraph-ratel
 
 Dgarph Alpha listens on ports 8080 and 9080 with log output to the terminal.
 
-### Docker on Non Linux Distributions
+### Docker on Non-Linux Distributions
 
 File access in mounted filesystems is slower when using Docker. Try running the command `time dd if=/dev/zero of=test.dat bs=1024 count=100000` on mounted volume and you will notice that it's horribly slow when using mounted volumes. We recommend users to use Docker data volumes. The only downside of using data volumes is that you can't access the files from the host, you have to launch a container to access volumes.
 
