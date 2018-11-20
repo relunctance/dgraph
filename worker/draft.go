@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -420,6 +421,7 @@ func (n *node) processApplyCh() {
 	tick := time.NewTicker(maxAge / 2)
 	defer tick.Stop()
 
+	runtime.LockOSThread()
 	for {
 		select {
 		case entries, ok := <-n.applyCh:
@@ -436,6 +438,8 @@ func (n *node) processApplyCh() {
 				}
 			}
 			n.elog.Printf("Size of previous map: %d", len(previous))
+		default:
+			runtime.Gosched()
 		}
 	}
 }
