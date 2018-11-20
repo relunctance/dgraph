@@ -439,7 +439,8 @@ func (n *node) processApplyCh() {
 			}
 			n.elog.Printf("Size of previous map: %d", len(previous))
 		default:
-			runtime.Gosched()
+			// runtime.Gosched()
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
