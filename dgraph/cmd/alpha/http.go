@@ -60,19 +60,30 @@ func extractStartTs(urlPath string) (uint64, error) {
 	}
 }
 
+// Common functionality for these request handlers. Returns true if the request is completely
+// handled and nothing further needs to be done.
+func commonHandler(w http.ResponseWriter, r *http.Request) bool {
+	// Do these requests really need CORS headers? Doesn't seem like it, but they are probably
+	// harmless aside from the extra size they add to each response.
+	x.AddCorsHeaders(w)
+
+	if r.Method == "OPTIONS" {
+		return true
+	} else if !allowed(r.Method) {
+		w.WriteHeader(http.StatusBadRequest)
+		x.SetStatus(w, x.ErrorInvalidMethod, "Invalid method")
+		return true
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	return false
+}
+
 // This method should just build the request and proxy it to the Query method of dgraph.Server.
 // It can then encode the response as appropriate before sending it back to the user.
 func queryHandler(w http.ResponseWriter, r *http.Request) {
-	x.AddCorsHeaders(w)
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	if !allowed(r.Method) {
-		w.WriteHeader(http.StatusBadRequest)
-		x.SetStatus(w, x.ErrorInvalidMethod, "Invalid method")
+	if commonHandler(w, r) {
 		return
 	}
 
@@ -163,18 +174,10 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func mutationHandler(w http.ResponseWriter, r *http.Request) {
-	x.AddCorsHeaders(w)
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
+	if commonHandler(w, r) {
 		return
 	}
 
-	if !allowed(r.Method) {
-		w.WriteHeader(http.StatusBadRequest)
-		x.SetStatus(w, x.ErrorInvalidMethod, "Invalid method")
-		return
-	}
 	defer r.Body.Close()
 	m, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -265,16 +268,7 @@ func mutationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func commitHandler(w http.ResponseWriter, r *http.Request) {
-	x.AddCorsHeaders(w)
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	if !allowed(r.Method) {
-		w.WriteHeader(http.StatusBadRequest)
-		x.SetStatus(w, x.ErrorInvalidMethod, "Invalid method")
+	if commonHandler(w, r) {
 		return
 	}
 
@@ -339,16 +333,7 @@ func commitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func abortHandler(w http.ResponseWriter, r *http.Request) {
-	x.AddCorsHeaders(w)
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	if !allowed(r.Method) {
-		w.WriteHeader(http.StatusBadRequest)
-		x.SetStatus(w, x.ErrorInvalidMethod, "Invalid method")
+	if commonHandler(w, r) {
 		return
 	}
 
@@ -389,16 +374,7 @@ func abortHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func alterHandler(w http.ResponseWriter, r *http.Request) {
-	x.AddCorsHeaders(w)
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	if !allowed(r.Method) {
-		w.WriteHeader(http.StatusBadRequest)
-		x.SetStatus(w, x.ErrorInvalidMethod, "Invalid method")
+	if commonHandler(w, r) {
 		return
 	}
 
