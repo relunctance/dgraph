@@ -63,63 +63,6 @@ func extractStartTs(urlPath string) (uint64, error) {
 	}
 }
 
-/*// Common functionality for these request handlers. Returns true if the request is completely
-// handled and nothing further needs to be done.
-func commonHandlerOld(w http.ResponseWriter, r *http.Request) bool {
-	// Do these requests really need CORS headers? Doesn't seem like it, but they are probably
-	// harmless aside from the extra size they add to each response.
-	x.AddCorsHeaders(w)
-
-	if r.Method == "OPTIONS" {
-		return true
-	} else if !allowed(r.Method) {
-		w.WriteHeader(http.StatusBadRequest)
-		x.SetStatus(w, x.ErrorInvalidMethod, "Invalid method")
-		return true
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	return false
-}
-
-// Common functionality for these request handlers. Returns a nil writer if the request is
-// completely handled and nothing further needs to be done.
-func commonHandlerOld2(w http.ResponseWriter, r *http.Request) (io.Writer, io.Reader) {
-	// Do these requests really need CORS headers? Doesn't seem like it, but they are probably
-	// harmless aside from the extra size they add to each response.
-	x.AddCorsHeaders(w)
-
-	if r.Method == "OPTIONS" {
-		return nil, nil
-	} else if !allowed(r.Method) {
-		w.WriteHeader(http.StatusBadRequest)
-		x.SetStatus(w, x.ErrorInvalidMethod, "Invalid method")
-		return nil, nil
-	}
-
-	var err error
-	rd := r.Body
-	if enc := r.Header.Get("Content-Encoding"); enc != "" && enc != "identity" {
-		if enc == "gzip" {
-			rd, err = gzip.NewReader(rd)
-			if err != nil {
-				x.SetStatus(w, x.Error, "Unable to create decompressor")
-				return nil, nil
-			}
-		} else {
-			x.SetStatus(w, x.ErrorInvalidRequest, "Unsupported content encoding")
-			return nil, nil
-		}
-	}
-
-	wr := w
-
-	w.Header().Set("Content-Type", "application/json")
-
-	return wr, rd
-}*/
-
 type streams struct {
 	in   io.Reader
 	out  io.Writer
@@ -138,8 +81,10 @@ func commonHandler(w http.ResponseWriter, r *http.Request) *streams {
 	// Do these requests really need CORS headers? Doesn't seem like it, but they are probably
 	// harmless aside from the extra size they add to each response.
 	x.AddCorsHeaders(w)
+	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method == "OPTIONS" {
+		w.Header().Set("X-Dgraph-CommonHandler", "handled")
 		return nil
 	} else if !allowed(r.Method) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -150,6 +95,7 @@ func commonHandler(w http.ResponseWriter, r *http.Request) *streams {
 	// These are the readers and writers the caller should use for the request and response
 	// body in order to handle compressed and uncompressed bodies transparently.
 	s := &streams{in: r.Body, out: w}
+	w.Header().Add("X-Dgraph-CommonHandler", "continue")
 
 	if enc := r.Header.Get("Content-Encoding"); enc != "" && enc != "identity" {
 		if enc == "gzip" {
@@ -159,6 +105,7 @@ func commonHandler(w http.ResponseWriter, r *http.Request) *streams {
 				return nil
 			}
 			s.clos = append(s.clos, gz)
+			w.Header().Add("X-Dgraph-CommonHandler", "decompressing")
 		} else {
 			x.SetStatus(w, x.ErrorInvalidRequest, "Unsupported content encoding")
 			return nil
@@ -169,9 +116,8 @@ func commonHandler(w http.ResponseWriter, r *http.Request) *streams {
 		w.Header().Set("Content-Encoding", "gzip")
 		gz := gzip.NewWriter(w)
 		s.clos = append(s.clos, gz)
+		w.Header().Add("X-Dgraph-CommonHandler", "compressing")
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 
 	return s
 }
