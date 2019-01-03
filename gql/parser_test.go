@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/dgraph-io/dgo/protos/api"
+	"github.com/dgraph-io/dgraph/lex"
 	"github.com/dgraph-io/dgraph/rdf"
 	"github.com/stretchr/testify/require"
 )
@@ -4420,4 +4421,26 @@ func TestParseGraphQLVarPaginationRootMultiple(t *testing.T) {
 	require.Equal(t, args["offset"], "5")
 	require.Equal(t, args["after"], "0x123")
 	require.Equal(t, gq.Query[0].Order[0].Attr, "name")
+}
+
+func TestParseMutationLineCount(t *testing.T) {
+	l := lex.Lexer{
+		Input: `
+		{
+			set {
+				<name> <is> <something> .
+				<hometown> <is> <san/francisco> .
+			}
+			delete {
+				<name> <is> <something-else> .
+			}
+		}
+		`,
+	}
+	l.Run(lexInsideMutation)
+
+	it := l.NewIterator()
+	for it.Next() {
+	}
+	require.Equal(t, 7, l.Line, it.Item().String())
 }
