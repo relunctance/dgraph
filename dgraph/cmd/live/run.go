@@ -286,6 +286,7 @@ func setup(opts batchMutationOptions, dc *dgo.Dgraph) *loader {
 }
 
 func run() error {
+	// 打印版本信息
 	x.PrintVersion()
 	opt = options{
 		files:               Live.Conf.GetString("rdfs"),
@@ -312,6 +313,7 @@ func run() error {
 		MaxRetries:    math.MaxUint32,
 	}
 
+	// 切割多个alpha grpc 服务器地址(9080端口)
 	ds := strings.Split(opt.dgraph, ",")
 	var clients []api.DgraphClient
 	for _, d := range ds {

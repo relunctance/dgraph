@@ -48,10 +48,14 @@ var (
 // Running counters of number of rdfs processed, total time and mutations per second are printed
 // if PrintCounters is set true.  See Counter.
 type batchMutationOptions struct {
-	Size          int
-	Pending       int
+	// 发送RDF的数据包大小
+	Size int
+	// 并发数
+	Pending int
+	// 是否打印统计信息
 	PrintCounters bool
-	MaxRetries    uint32
+	// 重试次数
+	MaxRetries uint32
 	// User could pass a context so that we can stop retrying requests once context is done
 	Ctx context.Context
 }
