@@ -842,6 +842,14 @@ func ToSubGraph(ctx context.Context, gq *gql.GraphQuery) (*SubGraph, error) {
 	return sg, err
 }
 
+// ContextKey is used to set options in the context object.
+type ContextKey int
+
+const (
+	// DebugKey is the key used to toggle debug mode.
+	DebugKey ContextKey = iota
+)
+
 func isDebug(ctx context.Context) bool {
 	var debug bool
 	// gRPC client passes information about debug as metadata.
@@ -850,7 +858,7 @@ func isDebug(ctx context.Context) bool {
 		debug = len(md["debug"]) > 0 && md["debug"][0] == "true"
 	}
 	// HTTP passes information about debug as query parameter which is attached to context.
-	return debug || ctx.Value("debug") == "true"
+	return debug || ctx.Value(DebugKey) == "true"
 }
 
 func (sg *SubGraph) populate(uids []uint64) error {
@@ -1569,27 +1577,40 @@ func (sg *SubGraph) fillVars(mp map[string]varValue) error {
 	var lists []*pb.List
 	for _, v := range sg.Params.NeedsVar {
 		if l, ok := mp[v.Name]; ok {
-			if (v.Typ == gql.ANY_VAR || v.Typ == gql.LIST_VAR) && l.strList != nil {
+			switch {
+			case (v.Typ == gql.ANY_VAR || v.Typ == gql.LIST_VAR) && l.strList != nil:
 				// TODO: If we support value vars for list type then this needn't be true
 				sg.ExpandPreds = l.strList
-			} else if (v.Typ == gql.ANY_VAR || v.Typ == gql.UID_VAR) && l.Uids != nil {
+
+			case (v.Typ == gql.ANY_VAR || v.Typ == gql.UID_VAR) && l.Uids != nil:
 				lists = append(lists, l.Uids)
-			} else if (v.Typ == gql.ANY_VAR || v.Typ == gql.VALUE_VAR) && len(l.Vals) != 0 {
+
+			case (v.Typ == gql.ANY_VAR || v.Typ == gql.VALUE_VAR) && len(l.Vals) != 0:
 				// This should happen only once.
 				// TODO: This allows only one value var per subgraph, change it later
 				sg.Params.uidToVal = l.Vals
-			} else if (v.Typ == gql.ANY_VAR || v.Typ == gql.UID_VAR) && len(l.Vals) != 0 {
+
+			case (v.Typ == gql.ANY_VAR || v.Typ == gql.UID_VAR) && len(l.Vals) != 0:
 				// Derive the UID list from value var.
 				uids := make([]uint64, 0, len(l.Vals))
 				for k := range l.Vals {
 					uids = append(uids, k)
 				}
-				sort.Slice(uids, func(i, j int) bool {
-					return uids[i] < uids[j]
-				})
+				sort.Slice(uids, func(i, j int) bool { return uids[i] < uids[j] })
 				lists = append(lists, &pb.List{Uids: uids})
-			} else if len(l.Vals) != 0 || l.Uids != nil {
+
+			case len(l.Vals) != 0 || l.Uids != nil:
 				return x.Errorf("Wrong variable type encountered for var(%v) %v.", v.Name, v.Typ)
+
+			default:
+				// This var does not match any uids or vals but we are still trying to access it.
+				if v.Typ == gql.VALUE_VAR {
+					// Provide a default value for valueVarAggregation() to eval val().
+					// This is a noop for aggregation funcs that would fail.
+					// The zero aggs won't show because there are no uids matched.
+					mp[v.Name].Vals[0] = types.Val{Tid: types.FloatID, Value: 0.0}
+					sg.Params.uidToVal = mp[v.Name].Vals
+				}
 			}
 		}
 	}
@@ -2589,15 +2610,15 @@ type ExecuteResult struct {
 	SchemaNode []*api.SchemaNode
 }
 
-func (qr *QueryRequest) Process(ctx context.Context) (er ExecuteResult, err error) {
-	err = qr.ProcessQuery(ctx)
+func (req *QueryRequest) Process(ctx context.Context) (er ExecuteResult, err error) {
+	err = req.ProcessQuery(ctx)
 	if err != nil {
 		return er, err
 	}
-	er.Subgraphs = qr.Subgraphs
+	er.Subgraphs = req.Subgraphs
 
-	if qr.GqlQuery.Schema != nil {
-		if er.SchemaNode, err = worker.GetSchemaOverNetwork(ctx, qr.GqlQuery.Schema); err != nil {
+	if req.GqlQuery.Schema != nil {
+		if er.SchemaNode, err = worker.GetSchemaOverNetwork(ctx, req.GqlQuery.Schema); err != nil {
 			return er, x.Wrapf(&InternalError{err: err}, "error while fetching schema")
 		}
 	}
