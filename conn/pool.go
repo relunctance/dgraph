@@ -57,7 +57,7 @@ type Pool struct {
 	// 当前连接对应的addr , 实际值为 ip+port
 	Addr string
 
-	//实际为echoDuration  , 每隔1s检测是否存活
+	// 实际为echoDuration  , 每隔1s检测是否存活
 	ticker *time.Ticker
 }
 
@@ -149,7 +149,7 @@ func (p *Pools) Connect(addr string) *Pool {
 	}
 
 	p.Lock()                        // 写锁
-	existingPool, has = p.all[addr] //再次检查是否存在, 因为别的协程有可能已经把连接放到池子中
+	existingPool, has = p.all[addr] // 再次检查是否存在, 因为别的协程有可能已经把连接放到池子中
 	if has {
 		p.Unlock()
 		return existingPool
@@ -187,12 +187,12 @@ func NewPool(addr string) (*Pool, error) {
 func (p *Pool) Get() *grpc.ClientConn {
 	p.RLock()
 	defer p.RUnlock()
-	return p.conn
+	return p.conn // 直接返回 grpc.Client
 }
 
 func (p *Pool) shutdown() {
-	p.ticker.Stop()
-	p.conn.Close()
+	p.ticker.Stop() // 关闭ticker
+	p.conn.Close()  // 关闭grpc conn 连接
 }
 
 func (p *Pool) SetUnhealthy() {
@@ -233,7 +233,7 @@ func (p *Pool) MonitorHealth() {
 	var lastErr error
 	for range p.ticker.C { // 每秒检查更新状态
 		err := p.UpdateHealthStatus(lastErr == nil) // 当上次没有出错的时候, 且本次同步raft出错了,打印日志
-		if lastErr != nil && err == nil {           //只有上次出错了, 本次更新成功的时候, 才打印建立连接成功
+		if lastErr != nil && err == nil {           // 只有上次出错了, 本次更新成功的时候, 才打印建立连接成功
 			glog.Infof("Connection established with %v\n", p.Addr)
 		}
 		lastErr = err
@@ -247,5 +247,5 @@ func (p *Pool) IsHealthy() bool {
 	}
 	p.RLock()
 	defer p.RUnlock()
-	return time.Since(p.lastEcho) < 2*echoDuration //当前时间距离最后一次更新的时间, 如果超过2s , 返回不健康
+	return time.Since(p.lastEcho) < 2*echoDuration // 当前时间距离最后一次更新的时间, 如果超过2s , 返回不健康
 }
