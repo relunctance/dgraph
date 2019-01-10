@@ -56,16 +56,20 @@ type Pool struct {
 
 type Pools struct {
 	sync.RWMutex
+	// 使用map管理连接池 , 其中key为addr (ip+port)
 	all map[string]*Pool
 }
 
+// 内部全局变量
 var pi *Pools
 
+// 初始化连接池内部全局变量
 func init() {
 	pi = new(Pools)
 	pi.all = make(map[string]*Pool)
 }
 
+// 提供给外部获取连接池方法
 func Get() *Pools {
 	return pi
 }
@@ -75,14 +79,17 @@ func (p *Pools) Get(addr string) (*Pool, error) {
 	defer p.RUnlock()
 	pool, ok := p.all[addr]
 	if !ok {
-		return nil, ErrNoConnection
+		return nil, ErrNoConnection // 说明没有建立连接
 	}
+
+	// 检测取到的pool是否健康, 如果不健康返回错误
 	if !pool.IsHealthy() {
 		return nil, ErrUnhealthyConnection
 	}
 	return pool, nil
 }
 
+// 根据在线alpha成员在线状态, 移除掉不在线的服务器
 func (p *Pools) RemoveInvalid(state *pb.MembershipState) {
 	// Keeps track of valid IP addresses, assigned to active nodes. We do this
 	// to avoid removing valid IP addresses from the Removed list.
@@ -95,6 +102,7 @@ func (p *Pools) RemoveInvalid(state *pb.MembershipState) {
 	for _, member := range state.Zeros {
 		validAddr[member.Addr] = struct{}{}
 	}
+	// 移除的时候 , 需要避免掉目前还在线提供服务的addr 不能被删除
 	for _, member := range state.Removed {
 		// Some nodes could have the same IP address. So, check before disconnecting.
 		if _, valid := validAddr[member.Addr]; !valid {
@@ -103,36 +111,37 @@ func (p *Pools) RemoveInvalid(state *pb.MembershipState) {
 	}
 }
 
+// 从p.all 这个map中移除掉addr
 func (p *Pools) remove(addr string) {
 	p.Lock()
 	pool, ok := p.all[addr]
-	if !ok {
+	if !ok { // 要移除的连接不在池子中
 		p.Unlock()
 		return
 	}
 	glog.Warningf("DISCONNECTING from %s\n", addr)
 	delete(p.all, addr)
 	p.Unlock()
-	pool.shutdown()
+	pool.shutdown() // 关闭这个pool
 }
 
 func (p *Pools) Connect(addr string) *Pool {
 	p.RLock()
 	existingPool, has := p.all[addr]
-	if has {
+	if has { // 如果池子中已经存在, 不需要在创建连接
 		p.RUnlock()
 		return existingPool
 	}
 	p.RUnlock()
 
-	pool, err := NewPool(addr)
+	pool, err := NewPool(addr) // 创建一个pool出来
 	if err != nil {
 		glog.Errorf("Unable to connect to host: %s", addr)
 		return nil
 	}
 
-	p.Lock()
-	existingPool, has = p.all[addr]
+	p.Lock()                        // 写锁
+	existingPool, has = p.all[addr] //再次检查是否存在, 因为别的协程有可能已经把连接放到池子中
 	if has {
 		p.Unlock()
 		return existingPool
