@@ -41,17 +41,24 @@ var (
 	echoDuration           = time.Second
 )
 
+// 单个pool结构体
 // "Pool" is used to manage the grpc client connection(s) for communicating with other
 // worker instances.  Right now it just holds one of them.
 type Pool struct {
 	sync.RWMutex
+
 	// A "pool" now consists of one connection.  gRPC uses HTTP2 transport to combine
 	// messages in the same TCP stream.
-	conn *grpc.ClientConn
+	conn *grpc.ClientConn // grpc 客户端连接
 
+	// 最后使用时间 , 可用于判断健康状态
 	lastEcho time.Time
-	Addr     string
-	ticker   *time.Ticker
+
+	// 当前连接对应的addr , 实际值为 ip+port
+	Addr string
+
+	//实际为echoDuration  , 每隔1s检测是否存活
+	ticker *time.Ticker
 }
 
 type Pools struct {
@@ -125,6 +132,7 @@ func (p *Pools) remove(addr string) {
 	pool.shutdown() // 关闭这个pool
 }
 
+// 直接获取连接, 如果没有新建一个, 并放入到连接池中
 func (p *Pools) Connect(addr string) *Pool {
 	p.RLock()
 	existingPool, has := p.all[addr]
@@ -165,11 +173,13 @@ func NewPool(addr string) (*Pool, error) {
 		return nil, err
 	}
 	pl := &Pool{conn: conn, Addr: addr, lastEcho: time.Now()}
+
+	// 更新raft健康状态
 	pl.UpdateHealthStatus(true)
 
 	// Initialize ticker before running monitor health.
 	pl.ticker = time.NewTicker(echoDuration)
-	go pl.MonitorHealth()
+	go pl.MonitorHealth() // 启动一个协程, 每秒检查raft状态
 	return pl, nil
 }
 
@@ -198,20 +208,21 @@ func (p *Pool) UpdateHealthStatus(printError bool) error {
 	query.Data = make([]byte, 10)
 	x.Check2(rand.Read(query.Data))
 
+	// 创建raft客户端
 	c := pb.NewRaftClient(conn)
 	// Ensure that we have a timeout here, otherwise a network partition could
 	// end up causing this RPC to get stuck forever.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	resp, err := c.Echo(ctx, query)
-	if err == nil {
+	resp, err := c.Echo(ctx, query) // 1秒后关闭
+	if err == nil {                 // 说明更新raft 成功
 		x.AssertTruef(bytes.Equal(resp.Data, query.Data),
 			"non-matching Echo response value from %v", p.Addr)
 		p.Lock()
-		p.lastEcho = time.Now()
+		p.lastEcho = time.Now() // 设置最后更新状态
 		p.Unlock()
-	} else if printError {
+	} else if printError { // 说明raft失败了
 		glog.Errorf("Echo error from %v. Err: %v\n", p.Addr, err)
 	}
 	return err
@@ -220,20 +231,21 @@ func (p *Pool) UpdateHealthStatus(printError bool) error {
 // MonitorHealth monitors the health of the connection via Echo. This function blocks forever.
 func (p *Pool) MonitorHealth() {
 	var lastErr error
-	for range p.ticker.C {
-		err := p.UpdateHealthStatus(lastErr == nil)
-		if lastErr != nil && err == nil {
+	for range p.ticker.C { // 每秒检查更新状态
+		err := p.UpdateHealthStatus(lastErr == nil) // 当上次没有出错的时候, 且本次同步raft出错了,打印日志
+		if lastErr != nil && err == nil {           //只有上次出错了, 本次更新成功的时候, 才打印建立连接成功
 			glog.Infof("Connection established with %v\n", p.Addr)
 		}
 		lastErr = err
 	}
 }
 
+// 判断是否健康
 func (p *Pool) IsHealthy() bool {
 	if p == nil {
 		return false
 	}
 	p.RLock()
 	defer p.RUnlock()
-	return time.Since(p.lastEcho) < 2*echoDuration
+	return time.Since(p.lastEcho) < 2*echoDuration //当前时间距离最后一次更新的时间, 如果超过2s , 返回不健康
 }
